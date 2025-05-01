@@ -22,12 +22,18 @@ pub struct TokenizerError {
     kind: TokenizerErrorKind,
 }
 
+impl TokenizerError {
+    pub fn line(&self) -> usize { self.line }
+    pub fn column(&self) -> usize { self.column }
+}
+
 #[derive(Debug)]
 pub enum TokenizerErrorKind {
     UnterminatedString,
     InvalidEscapeSequence,
 }
 
+#[derive(Clone)]
 pub struct Tokenizer<'a> {
     data: &'a str,
     position: usize,

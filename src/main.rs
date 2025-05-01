@@ -1,17 +1,24 @@
 mod tokenizer;
 mod lexer;
 mod parser;
+mod cursor;
 
-const CODE: &str = include_str!("../maaray-examples/fibonacci.mry");
+const CODE: &str = include_str!("../maaray-examples/hello_world.mry");
 
 fn main() {
     let tokenizer = tokenizer::Tokenizer::new(CODE);
-    // let tokens = tokenizer.collect::<Vec<_>>();
-
     let lexer = lexer::Lexer::new(tokenizer);
-    // let tokens = lexer.collect::<Vec<_>>();
+    let tokens: Vec<_> = lexer.collect();
 
-    let parser = parser::Parser::new(lexer);
+    for i in &tokens {
+        if let Err(e) = i {
+            eprintln!("Tokenizing error at {}:{}", e.line(), e.column());
+        }
+    }
+
+    let tokens = tokens.into_iter().map(|a| a.unwrap()).collect();
+
+    let mut parser = parser::Parser::new(tokens);
 
     println!("Tokens: {:#?}", parser.parse());
 }

@@ -1,6 +1,6 @@
 use crate::tokenizer::{TResult, Token, TokenKind};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum LexemKind {
     Ident(String),
     Number(String),
@@ -28,7 +28,35 @@ pub enum LexemKind {
 pub struct Lexem {
     line: usize,
     column: usize,
-    kind: LexemKind
+    kind: LexemKind,
+}
+
+impl Lexem {
+    pub fn line(&self) -> usize {
+        self.line
+    }
+    pub fn column(&self) -> usize {
+        self.column
+    }
+    pub fn token(&self) -> &LexemKind {
+        &self.kind
+    }
+    pub fn is_ident(&self) -> bool {
+        matches!(self.kind, LexemKind::Ident(_))
+    }
+    pub fn is_ident_equals(&self, value: &str) -> bool {
+        if let LexemKind::Ident(ref x) = self.kind {
+            x == value
+        } else {
+            false
+        }
+    }
+
+    pub fn ident(&self) -> Option<&String> {
+        let LexemKind::Ident(ref x) = self.kind else { return None };
+
+        Some(x)
+    }
 }
 
 pub struct Lexer<T: Iterator> {
@@ -37,9 +65,7 @@ pub struct Lexer<T: Iterator> {
 
 impl<T: Iterator<Item = TResult<Token>>> Lexer<T> {
     pub fn new(input: T) -> Self {
-        Self {
-            input
-        }
+        Self { input }
     }
 
     pub fn next(&mut self) -> Option<TResult<Token>> {
@@ -51,60 +77,44 @@ impl<T: Iterator<Item = TResult<Token>>> Lexer<T> {
 
         match next {
             None => None,
-            Some(token) => {
-                match token {
-                    Ok(token) => {
-                        let kind = match token.kind {
-                            TokenKind::Ident(id) => {
-                                let ret = LexemKind::Ident(id);
-                                ret
-                            },
-                            TokenKind::StringLiteral(st) => {
-                                let ret = LexemKind::StringLiteral(st);
-                                ret
-                            },
-                            TokenKind::Number(nr) => {
-                                let ret = LexemKind::Number(nr);
-                                ret
-                            },
-                            TokenKind::Symbol(sym) => {
-                                match sym {
-                                    '\n' | ' ' => return self.lex(),
-                                    '(' => LexemKind::LParen,
-                                    ')' => LexemKind::RParen,
-                                    '{' => LexemKind::LBrace,
-                                    '}' => LexemKind::RBrace,
-                                    '=' => LexemKind::Equals,
-                                    '|' => LexemKind::Or,
-                                    '&' => LexemKind::And,
-                                    '<' => LexemKind::Less,
-                                    '>' => LexemKind::Greater,
-                                    ';' => LexemKind::Semicolon,
-                                    '+' => LexemKind::Plus,
-                                    '-' => LexemKind::Minus,
-                                    '*' => LexemKind::Asterisk,
-                                    '/' => LexemKind::Slash,
-                                    '.' => LexemKind::Dot,
-                                    ',' => LexemKind::Comma,
-                                    _ => {
-                                        todo!("Not supported yet: {sym:?}");
-                                    }
-                                }
-                            },
-                        };
+            Some(token) => match token {
+                Ok(token) => {
+                    let kind = match token.kind {
+                        TokenKind::Ident(id) => LexemKind::Ident(id),
+                        TokenKind::StringLiteral(st) => LexemKind::StringLiteral(st),
+                        TokenKind::Number(nr) => LexemKind::Number(nr),
+                        TokenKind::Symbol(sym) => match sym {
+                            '\n' | ' ' => return self.lex(),
+                            '(' => LexemKind::LParen,
+                            ')' => LexemKind::RParen,
+                            '{' => LexemKind::LBrace,
+                            '}' => LexemKind::RBrace,
+                            '=' => LexemKind::Equals,
+                            '|' => LexemKind::Or,
+                            '&' => LexemKind::And,
+                            '<' => LexemKind::Less,
+                            '>' => LexemKind::Greater,
+                            ';' => LexemKind::Semicolon,
+                            '+' => LexemKind::Plus,
+                            '-' => LexemKind::Minus,
+                            '*' => LexemKind::Asterisk,
+                            '/' => LexemKind::Slash,
+                            '.' => LexemKind::Dot,
+                            ',' => LexemKind::Comma,
+                            _ => {
+                                todo!("Not supported yet: {sym:?}");
+                            }
+                        },
+                    };
 
-                        Some(Ok(Lexem {
-                            line: token.line,
-                            column: token.column,
-                            kind
-                        }))
-                    }
-                    Err(x) => 
-                    {
-                        Some(Err(x))
-                    },
+                    Some(Ok(Lexem {
+                        line: token.line,
+                        column: token.column,
+                        kind,
+                    }))
                 }
-            }
+                Err(x) => Some(Err(x)),
+            },
         }
     }
 }
