@@ -1,0 +1,1 @@
+print("\"This string is escaped.\"")

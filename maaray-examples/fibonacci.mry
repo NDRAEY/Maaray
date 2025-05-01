@@ -1,0 +1,11 @@
+func fib(number) {
+    if number == 0 || number == 1 {
+        return number;
+    }
+
+    return fib(number - 1) + fib(number - 2);
+}
+
+let value = fib(10);
+
+println("Fibonacci of 10 is: " + str.from(value));
