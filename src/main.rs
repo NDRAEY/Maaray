@@ -9,7 +9,9 @@ fn main() {
     // let tokens = tokenizer.collect::<Vec<_>>();
 
     let lexer = lexer::Lexer::new(tokenizer);
-    let tokens = lexer.collect::<Vec<_>>();
+    // let tokens = lexer.collect::<Vec<_>>();
 
-    println!("Tokens: {tokens:?}");
+    let parser = parser::Parser::new(lexer);
+
+    println!("Tokens: {:#?}", parser.parse());
 }
