@@ -3,7 +3,7 @@ mod lexer;
 mod parser;
 mod cursor;
 
-const CODE: &str = include_str!("../maaray-examples/hello_world.mry");
+const CODE: &str = include_str!("../maaray-examples/fibonacci.mry");
 
 fn main() {
     let tokenizer = tokenizer::Tokenizer::new(CODE);

@@ -40,6 +40,11 @@ pub enum Node {
         parent: Box<Node>,
         value: String,
     },
+    If {
+        condition: Box<Node>,
+        alternative: Box<Node>,
+        block: Box<Node>
+    },
     Program(Vec<Node>),
     Block(Vec<Node>),
 }
@@ -71,7 +76,7 @@ impl Parser {
                 }
 
                 ret
-            },
+            }
         }
     }
 
@@ -139,6 +144,7 @@ impl Parser {
             let comma = self.input.next().unwrap();
 
             if comma.token() != &LexemKind::Comma {
+                self.input.prev();
                 break;
             }
         }
@@ -163,6 +169,8 @@ impl Parser {
             None => todo!("Implement Syntax error: expected function name!"),
         };
 
+        println!("Parsing func with name: {name:?}");
+
         // If there's no `(`
         if self
             .input
@@ -174,6 +182,7 @@ impl Parser {
         }
 
         let arguments = self.parse_comma_separated();
+        println!("Args: {arguments:?}");
 
         // If there's no `)`
         if self
@@ -183,7 +192,7 @@ impl Parser {
             .unwrap_or(false)
         {
             todo!(
-                "Implement Syntax error: expected `)`! ({:?}",
+                "Implement Syntax error: expected `)`! Got: {:?}",
                 self.input.current()
             );
         }
@@ -225,7 +234,8 @@ impl Parser {
             .map(|a| a.token() != &LexemKind::LParen)
             .unwrap_or(false)
         {
-            todo!("Implement Syntax error: expected `(`!");
+            self.input.set_position(initial_position);
+            return None;
         }
 
         let parameters = self.parse_comma_separated();
@@ -250,11 +260,36 @@ impl Parser {
         })
     }
 
+    pub fn parse_expression(&mut self) -> Option<Node> {
+        todo!("Expression!")
+    }
+
+    pub fn parse_if(&mut self) -> Option<Node> {
+        let initial_position = self.input.position();
+        let token = self.input.next().unwrap();
+
+        if !token.is_ident_equals("if") {
+            self.input.set_position(initial_position);
+
+            return None;
+        }
+
+        let expr = self.parse_expression();
+
+        todo!("And what?")
+    }
+
     pub fn parse_once(&mut self) -> Option<Node> {
         println!("? Block");
         if let Some(block) = self.parse_block() {
             println!("+ Block: {:?}", &block);
             return Some(block);
+        }
+
+        println!("? Condition");
+        if let Some(condition) = self.parse_if() {
+            println!("+ Condition: {:?}", &condition);
+            return Some(condition);
         }
 
         println!("? Function");
@@ -287,7 +322,6 @@ impl Parser {
                 .current()
                 .map(|a| (a.token(), a.line(), a.column()))
         );
-
     }
 
     pub fn parse(&mut self) -> Option<Node> {
