@@ -1,4 +1,4 @@
-use std::io::{Read, Seek};
+use std::{f32::consts::E, io::{Read, Seek}};
 
 use crate::{
     cursor::{self, VecCursor},
@@ -43,7 +43,7 @@ pub enum Node {
     If {
         condition: Box<Node>,
         alternative: Box<Node>,
-        block: Box<Node>
+        block: Box<Node>,
     },
     Program(Vec<Node>),
     Block(Vec<Node>),
@@ -93,6 +93,27 @@ impl Parser {
             Some(x) => {
                 if let LexemKind::StringLiteral(sl) = x.token() {
                     Some(Node::String(sl.clone()))
+                } else {
+                    self.input.prev();
+                    None
+                }
+            }
+        }
+    }
+
+    pub fn parse_number(&mut self) -> Option<Node> {
+        let nx = self.input.next();
+
+        println!("Number: {nx:?}");
+
+        match nx {
+            None => {
+                self.input.prev();
+                None
+            }
+            Some(x) => {
+                if let LexemKind::Number(nr) = x.token() {
+                    Some(Node::Number(*nr))
                 } else {
                     self.input.prev();
                     None
@@ -261,6 +282,40 @@ impl Parser {
     }
 
     pub fn parse_expression(&mut self) -> Option<Node> {
+        let current_node = self.parse_once();
+
+        eprintln!("Current node is: {:?}", current_node);
+
+        let next_lexem = self.input.next();
+
+        if *next_lexem.unwrap().token() == LexemKind::Equals {
+            // Should be `==`
+            let next_lexem = self.input.next();
+            if *next_lexem.unwrap().token() == LexemKind::Equals {
+                // It's `==`!
+
+                let node = self.parse_expression();
+
+                eprintln!("Node: {:?}", node);
+
+                return Some(Node::Equals(
+                    Box::new(current_node.unwrap()),
+                    Box::new(node.unwrap()),
+                ));
+            }
+        } else {
+            // It seems it's a bare value
+            self.input.prev();
+
+            eprintln!("Bare value! {current_node:?}");
+
+            if let Some(node) = current_node {
+                return Some(node);
+            } else {
+                todo!("Parse other value from expression: {current_node:?}");
+            }
+        }
+
         todo!("Expression!")
     }
 
@@ -274,7 +329,9 @@ impl Parser {
             return None;
         }
 
-        let expr = self.parse_expression();
+        let condition = self.parse_expression();
+
+        eprintln!("{condition:#?}");
 
         todo!("And what?")
     }
@@ -316,11 +373,23 @@ impl Parser {
             return Some(string);
         }
 
+        println!("? Number");
+        if let Some(number) = self.parse_number() {
+            println!("+ Number: {:?}", &number);
+            return Some(number);
+        }
+
+        let current_token_data = self
+            .input
+            .current()
+            .map(|a| (a.token(), a.line(), a.column()))
+            .unwrap();
+
         todo!(
-            "Syntax error: {:?}",
-            self.input
-                .current()
-                .map(|a| (a.token(), a.line(), a.column()))
+            "Syntax error: Token: {:?}, Line: {:?}; Column: {:?}",
+            current_token_data.0,
+            current_token_data.1,
+            current_token_data.2,
         );
     }
 

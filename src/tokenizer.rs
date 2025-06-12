@@ -176,7 +176,7 @@ impl Iterator for Tokenizer<'_> {
             Some(Ok(Token {
                 line: self.line,
                 column: self.column,
-                kind: TokenKind::Ident(ident),
+                kind: TokenKind::Number(ident),
             }))
         } else if ch == '"' {
             Some(self.read_string().map(|a| Token {

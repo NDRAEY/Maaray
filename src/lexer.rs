@@ -3,7 +3,7 @@ use crate::tokenizer::{TResult, Token, TokenKind};
 #[derive(Debug, PartialEq)]
 pub enum LexemKind {
     Ident(String),
-    Number(String),
+    Number(f64),
     StringLiteral(String),
     LParen,
     RParen,
@@ -82,7 +82,9 @@ impl<T: Iterator<Item = TResult<Token>>> Lexer<T> {
                     let kind = match token.kind {
                         TokenKind::Ident(id) => LexemKind::Ident(id),
                         TokenKind::StringLiteral(st) => LexemKind::StringLiteral(st),
-                        TokenKind::Number(nr) => LexemKind::Number(nr),
+                        TokenKind::Number(nr) => {
+                            LexemKind::Number(nr.parse().expect("Failed to convert string to f64"))
+                        },
                         TokenKind::Symbol(sym) => match sym {
                             '\n' | ' ' => return self.lex(),
                             '(' => LexemKind::LParen,
