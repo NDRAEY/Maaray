@@ -3,9 +3,13 @@ mod lexer;
 mod parser;
 mod cursor;
 
-const CODE: &str = include_str!("../maaray-examples/hello_world.mry");
+const CODE: &str = include_str!("../maaray-examples/fibonacci.mry");
 
 fn main() {
+	println!("Code: \n{CODE}");
+
+	println!("----------------------");
+
     let tokenizer = tokenizer::Tokenizer::new(CODE);
     let lexer = lexer::Lexer::new(tokenizer);
     let tokens: Vec<_> = lexer.collect();
