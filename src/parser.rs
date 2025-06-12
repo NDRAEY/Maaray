@@ -333,6 +333,10 @@ impl Parser {
 
         eprintln!("{condition:#?}");
 
+        let block = self.parse_block();
+
+        eprintln!("{block:?}");
+
         todo!("And what?")
     }
 
