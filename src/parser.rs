@@ -1,4 +1,7 @@
-use std::{f32::consts::E, io::{Read, Seek}};
+use std::{
+    f32::consts::E,
+    io::{Read, Seek},
+};
 
 use crate::{
     cursor::{self, VecCursor},
@@ -286,37 +289,43 @@ impl Parser {
 
         eprintln!("Current node is: {:?}", current_node);
 
-        let next_lexem = self.input.next();
+        let parse1 = |this: &mut Self| {
+            let next_lexem = this.input.next();
 
-        if *next_lexem.unwrap().token() == LexemKind::Equals {
-            // Should be `==`
-            let next_lexem = self.input.next();
             if *next_lexem.unwrap().token() == LexemKind::Equals {
-                // It's `==`!
+                // Should be `==`
+                let next_lexem = this.input.next();
+                if *next_lexem.unwrap().token() == LexemKind::Equals {
+                    // It's `==`!
 
-                let node = self.parse_expression();
+                    let node = this.parse_expression();
 
-                eprintln!("Node: {:?}", node);
+                    eprintln!("Node: {:?}", node);
 
-                return Some(Node::Equals(
-                    Box::new(current_node.unwrap()),
-                    Box::new(node.unwrap()),
-                ));
-            }
-        } else {
-            // It seems it's a bare value
-            self.input.prev();
-
-            eprintln!("Bare value! {current_node:?}");
-
-            if let Some(node) = current_node {
-                return Some(node);
+                    return Some(Node::Equals(
+                        Box::new(current_node.unwrap()),
+                        Box::new(node.unwrap()),
+                    ));
+                }
             } else {
-                todo!("Parse other value from expression: {current_node:?}");
-            }
-        }
+                // It seems it's a bare value
+                this.input.prev();
 
-        todo!("Expression!")
+                eprintln!("Bare value! {current_node:?}");
+
+                if let Some(node) = current_node {
+                    return Some(node);
+                } else {
+                    todo!("Parse other value from expression: {current_node:?}");
+                }
+            }
+
+            todo!("Expression!")
+        };
+
+        let node = parse1(self);
+
+        return node;
     }
 
     pub fn parse_if(&mut self) -> Option<Node> {
@@ -332,6 +341,8 @@ impl Parser {
         let condition = self.parse_expression();
 
         eprintln!("{condition:#?}");
+
+        eprintln!("{:?}", self.input.current());
 
         let block = self.parse_block();
 
