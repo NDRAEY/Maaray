@@ -464,7 +464,7 @@ impl Parser {
         let object = self.parse_atom();
         let token = self.input.next();
 
-        if token.unwrap().token() != &LexemKind::Dot {
+        if !token.map(|x| x.token() == &LexemKind::Dot).unwrap_or(false) {
             self.input.prev();
 
             return object;
