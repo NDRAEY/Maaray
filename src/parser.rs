@@ -136,8 +136,6 @@ impl Parser {
     }
 
     pub fn parse_block(&mut self) -> Option<Node> {
-        // let mut nodes: Vec<Node> = Vec::new();
-
         let current_position = self.input.position();
 
         let lbrace = self.input.next().unwrap();
@@ -150,11 +148,9 @@ impl Parser {
 
         println!("LBrace passed");
 
-        let value = self.parse_advanced(true);
+        let value = self.parse();
 
         println!("Parsed: {:#?}", value);
-
-        // nodes.push(value);
 
         let rbrace = self.input.next().unwrap();
 
@@ -398,8 +394,6 @@ impl Parser {
             alternative: Box::new(Node::Program(Vec::new())),
             block: Box::new(block.unwrap()),
         });
-
-        todo!("And what?")
     }
 
     pub fn parse_return(&mut self) -> Option<Node> {
@@ -465,7 +459,7 @@ impl Parser {
     }
 
     pub fn parse_attr_resolve(&mut self) -> Option<Node> {
-        let position = self.input.position();
+        // let position = self.input.position();
 
         let object = self.parse_atom();
         let token = self.input.next();
@@ -588,7 +582,7 @@ impl Parser {
         return None;
     }
 
-    pub fn parse_advanced(&mut self, is_parsing_block: bool) -> Node {
+    pub fn parse(&mut self) -> Node {
         println!("= Entering parse");
         let mut actions: Vec<Node> = Vec::new();
 
@@ -608,10 +602,6 @@ impl Parser {
             1 => actions.pop().unwrap(),
             _ => Node::Program(actions),
         }
-    }
-
-    pub fn parse(&mut self) -> Node {
-        self.parse_advanced(false)
     }
 
     fn consume_semicolon(&self) -> bool {
