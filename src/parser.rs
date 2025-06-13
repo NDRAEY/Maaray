@@ -21,7 +21,7 @@ pub enum Node {
     Function {
         name: String,
         arguments: Vec<Node>,
-        code: Vec<Node>,
+        code: Box<Node>,
     },
     Return(Box<Node>),
     Add(Box<Node>, Box<Node>),
@@ -41,7 +41,7 @@ pub enum Node {
     },
     AttributeResolve {
         parent: Box<Node>,
-        value: String,
+        value: Box<Node>,
     },
     If {
         condition: Box<Node>,
@@ -50,6 +50,16 @@ pub enum Node {
     },
     Program(Vec<Node>),
     Block(Vec<Node>),
+}
+
+impl Node {
+    pub fn ident(&self) -> Option<&String> {
+        if let Node::Ident(id) = self {
+            return Some(id);
+        }
+
+        None
+    }
 }
 
 pub struct Parser {
@@ -231,11 +241,11 @@ impl Parser {
             name,
             arguments: arguments.unwrap(),
             code: {
-                let Some(Node::Block(x)) = block else {
+                let Some(x) = block else {
                     panic!("Expected block, but got None.");
                 };
 
-                x
+                Box::new(x)
             },
         })
     }
@@ -288,7 +298,7 @@ impl Parser {
     }
 
     pub fn parse_expression_level_1(&mut self) -> Option<Node> {
-        let current_node = self.parse_atom();
+        let current_node = self.parse_chained();
 
         eprintln!("Current node is: {:?}", current_node);
 
@@ -315,11 +325,13 @@ impl Parser {
 
             eprintln!("Bare value! {current_node:?}");
 
-            if let Some(node) = current_node {
-                return Some(node);
-            } else {
-                todo!("Parse other value from expression: {current_node:?}");
-            }
+            // if let Some(node) = current_node {
+            //     return Some(node);
+            // } else {
+            //     todo!("Parse other value from expression: {current_node:?}");
+            // }
+
+            return current_node;
         }
 
         todo!("Expression!")
@@ -350,7 +362,10 @@ impl Parser {
         } else if after.token() == &LexemKind::Minus {
             let rhs = self.parse_expression_level_1();
 
-            return Some(Node::Subtract(Box::new(lhs.unwrap()), Box::new(rhs.unwrap())));
+            return Some(Node::Subtract(
+                Box::new(lhs.unwrap()),
+                Box::new(rhs.unwrap()),
+            ));
         } else {
             self.input.prev();
         }
@@ -408,7 +423,84 @@ impl Parser {
         return Some(Node::Return(Box::new(expression.unwrap())));
     }
 
+    pub fn parse_declaration(&mut self) -> Option<Node> {
+        let position = self.input.position();
+
+        let token = self.input.next().cloned();
+        let is_let_token = token
+            .as_ref()
+            .map(|a| a.ident().map(|x| x == "let").unwrap_or(false))
+            .unwrap_or(false);
+
+        if !is_let_token {
+            self.input.prev();
+
+            return None;
+        }
+
+        let name = self.parse_ident();
+
+        let sign = self.input.next().cloned();
+        let is_equal_sign = sign
+            .as_ref()
+            .map(|x| x.token() == &LexemKind::Equals)
+            .unwrap_or(false);
+
+        if !is_equal_sign {
+            self.input.set_position(position);
+        }
+
+        let expression = self.parse_expression();
+
+        eprintln!("Name: {name:?}; Sign: {sign:?}; Expression: {expression:#?}");
+
+        self.consume_semicolon();
+
+        // todo!("Is assignment stable?");
+
+        return Some(Node::Assignment {
+            name: name.map(|x| x.ident().cloned().unwrap()).unwrap(),
+            value: Box::new(expression.unwrap()),
+        });
+    }
+
+    pub fn parse_attr_resolve(&mut self) -> Option<Node> {
+        let position = self.input.position();
+
+        let object = self.parse_atom();
+        let token = self.input.next();
+
+        if token.unwrap().token() != &LexemKind::Dot {
+            self.input.prev();
+
+            return object;
+        }
+
+        let attr = self.parse_chained();
+
+        return Some(Node::AttributeResolve {
+            parent: Box::new(object.unwrap()),
+            value: Box::new(attr.unwrap()),
+        });
+    }
+
+    pub fn parse_chained(&mut self) -> Option<Node> {
+        println!("? Attribute resolve");
+        if let Some(res) = self.parse_attr_resolve() {
+            println!("+ Attribute resolve: {:?}", &res);
+            return Some(res);
+        }
+
+        return self.parse_atom();
+    }
+
     pub fn parse_atom(&mut self) -> Option<Node> {
+        println!("? Call");
+        if let Some(call) = self.parse_call() {
+            println!("+ Call: {:?}", &call);
+            return Some(call);
+        }
+
         println!("? Ident");
         if let Some(ident) = self.parse_ident() {
             println!("+ Ident: {:?}", &ident);
@@ -449,10 +541,10 @@ impl Parser {
             return Some(func);
         }
 
-        println!("? Call");
-        if let Some(call) = self.parse_call() {
-            println!("+ Call: {:?}", &call);
-            return Some(call);
+        println!("? Declaration");
+        if let Some(decl) = self.parse_declaration() {
+            println!("+ Declaration: {:?}", &decl);
+            return Some(decl);
         }
 
         println!("? Return");
@@ -477,18 +569,23 @@ impl Parser {
             return None;
         }
 
+        self.consume_semicolon();
+
         let current_token_data = self
             .input
             .current()
-            .map(|a| (a.token(), a.line(), a.column()))
-            .unwrap();
+            .map(|a| (a.token(), a.line(), a.column()));
 
-        todo!(
-            "Syntax error: Token: {:?}, Line: {:?}; Column: {:?}",
-            current_token_data.0,
-            current_token_data.1,
-            current_token_data.2,
-        );
+        if let Some(data) = current_token_data {
+            todo!(
+                "Syntax error: Token: {:?}, Line: {:?}; Column: {:?}",
+                data.0,
+                data.1,
+                data.2,
+            );
+        }
+
+        return None;
     }
 
     pub fn parse_advanced(&mut self, is_parsing_block: bool) -> Node {
@@ -498,7 +595,7 @@ impl Parser {
         while !self.input.reached_end() {
             let node = self.parse_once();
 
-            if is_parsing_block && node.is_none() {
+            if node.is_none() {
                 break;
             }
 

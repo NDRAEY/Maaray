@@ -1,6 +1,6 @@
 use crate::tokenizer::{TResult, Token, TokenKind};
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LexemKind {
     Ident(String),
     Number(f64),
@@ -24,7 +24,7 @@ pub enum LexemKind {
     Plus,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Lexem {
     line: usize,
     column: usize,
