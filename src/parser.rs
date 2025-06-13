@@ -126,7 +126,9 @@ impl Parser {
     }
 
     pub fn parse_block(&mut self) -> Option<Node> {
-        let mut nodes = Vec::new();
+        // let mut nodes: Vec<Node> = Vec::new();
+
+        let current_position = self.input.position();
 
         let lbrace = self.input.next().unwrap();
 
@@ -136,29 +138,30 @@ impl Parser {
             return None;
         }
 
-        loop {
-            let value = self.parse();
+        println!("LBrace passed");
 
-            nodes.push(match value {
-                Some(val) => val,
-                None => break,
-            });
+        let value = self.parse_advanced(true);
 
-            let rbrace = self.input.next().unwrap();
+        println!("Parsed: {:#?}", value);
 
-            if rbrace.token() != &LexemKind::RBrace {
-                break;
-            }
+        // nodes.push(value);
+
+        let rbrace = self.input.next().unwrap();
+
+        if rbrace.token() != &LexemKind::RBrace {
+            self.input.set_position(current_position);
+
+            return None;
         }
 
-        Some(Node::Block(nodes))
+        Some(value)
     }
 
     pub fn parse_comma_separated(&mut self) -> Option<Vec<Node>> {
         let mut values: Vec<Node> = Vec::new();
 
         loop {
-            let value = self.parse_once();
+            let value = self.parse_expression();
 
             values.push(match value {
                 Some(val) => val,
@@ -284,48 +287,75 @@ impl Parser {
         })
     }
 
-    pub fn parse_expression(&mut self) -> Option<Node> {
-        let current_node = self.parse_once();
+    pub fn parse_expression_level_1(&mut self) -> Option<Node> {
+        let current_node = self.parse_atom();
 
         eprintln!("Current node is: {:?}", current_node);
 
-        let parse1 = |this: &mut Self| {
-            let next_lexem = this.input.next();
+        let next_lexem = self.input.next();
 
+        if *next_lexem.unwrap().token() == LexemKind::Equals {
+            // Should be `==`
+            let next_lexem = self.input.next();
             if *next_lexem.unwrap().token() == LexemKind::Equals {
-                // Should be `==`
-                let next_lexem = this.input.next();
-                if *next_lexem.unwrap().token() == LexemKind::Equals {
-                    // It's `==`!
+                // It's `==`!
 
-                    let node = this.parse_expression();
+                let node = self.parse_expression_level_1();
 
-                    eprintln!("Node: {:?}", node);
+                eprintln!("Node: {:?}", node);
 
-                    return Some(Node::Equals(
-                        Box::new(current_node.unwrap()),
-                        Box::new(node.unwrap()),
-                    ));
-                }
-            } else {
-                // It seems it's a bare value
-                this.input.prev();
-
-                eprintln!("Bare value! {current_node:?}");
-
-                if let Some(node) = current_node {
-                    return Some(node);
-                } else {
-                    todo!("Parse other value from expression: {current_node:?}");
-                }
+                return Some(Node::Equals(
+                    Box::new(current_node.unwrap()),
+                    Box::new(node.unwrap()),
+                ));
             }
+        } else {
+            // It seems it's a bare value
+            self.input.prev();
 
-            todo!("Expression!")
-        };
+            eprintln!("Bare value! {current_node:?}");
 
-        let node = parse1(self);
+            if let Some(node) = current_node {
+                return Some(node);
+            } else {
+                todo!("Parse other value from expression: {current_node:?}");
+            }
+        }
 
-        return node;
+        todo!("Expression!")
+    }
+
+    pub fn parse_expression(&mut self) -> Option<Node> {
+        let lhs = self.parse_expression_level_1();
+
+        let after = self.input.next()?;
+
+        if after.token() == &LexemKind::Or {
+            let next = self.input.next()?;
+
+            if next.token() == &LexemKind::Or {
+                let rhs = self.parse_expression_level_1();
+
+                // println!("LHS: {lhs:?}");
+                // println!("RHS: {rhs:?}");
+
+                // todo!("WTF");
+
+                return Some(Node::Or(Box::new(lhs.unwrap()), Box::new(rhs.unwrap())));
+            }
+        } else if after.token() == &LexemKind::Plus {
+            let rhs = self.parse_expression_level_1();
+
+            return Some(Node::Add(Box::new(lhs.unwrap()), Box::new(rhs.unwrap())));
+        } else if after.token() == &LexemKind::Minus {
+            let rhs = self.parse_expression_level_1();
+
+            return Some(Node::Subtract(Box::new(lhs.unwrap()), Box::new(rhs.unwrap())));
+        } else {
+            self.input.prev();
+        }
+
+        return lhs;
     }
 
     pub fn parse_if(&mut self) -> Option<Node> {
@@ -346,9 +376,58 @@ impl Parser {
 
         let block = self.parse_block();
 
-        eprintln!("{block:?}");
+        eprintln!("Block: {block:?}");
+
+        return Some(Node::If {
+            condition: Box::new(condition.unwrap()),
+            alternative: Box::new(Node::Program(Vec::new())),
+            block: Box::new(block.unwrap()),
+        });
 
         todo!("And what?")
+    }
+
+    pub fn parse_return(&mut self) -> Option<Node> {
+        let token = self.input.next();
+        let is_return_token = token
+            .map(|a| a.ident().map(|x| x == "return").unwrap_or(false))
+            .unwrap_or(false);
+
+        if !is_return_token {
+            self.input.prev();
+
+            return None;
+        }
+
+        let expression = self.parse_expression();
+
+        eprintln!("Expression: {expression:#?}");
+
+        self.consume_semicolon();
+
+        return Some(Node::Return(Box::new(expression.unwrap())));
+    }
+
+    pub fn parse_atom(&mut self) -> Option<Node> {
+        println!("? Ident");
+        if let Some(ident) = self.parse_ident() {
+            println!("+ Ident: {:?}", &ident);
+            return Some(ident);
+        }
+
+        println!("? String");
+        if let Some(string) = self.parse_string() {
+            println!("+ String: {:?}", &string);
+            return Some(string);
+        }
+
+        println!("? Number");
+        if let Some(number) = self.parse_number() {
+            println!("+ Number: {:?}", &number);
+            return Some(number);
+        }
+
+        return None;
     }
 
     pub fn parse_once(&mut self) -> Option<Node> {
@@ -376,22 +455,26 @@ impl Parser {
             return Some(call);
         }
 
-        println!("? Ident");
-        if let Some(ident) = self.parse_ident() {
-            println!("+ Ident: {:?}", &ident);
-            return Some(ident);
+        println!("? Return");
+        if let Some(ret) = self.parse_return() {
+            println!("+ Return: {:?}", &ret);
+            return Some(ret);
         }
 
-        println!("? String");
-        if let Some(string) = self.parse_string() {
-            println!("+ String: {:?}", &string);
-            return Some(string);
+        println!("? Expression");
+        if let Some(expr) = self.parse_expression() {
+            println!("+ Expression: {:?}", &expr);
+            return Some(expr);
         }
 
-        println!("? Number");
-        if let Some(number) = self.parse_number() {
-            println!("+ Number: {:?}", &number);
-            return Some(number);
+        println!("? Block exit");
+        if self
+            .input
+            .current()
+            .map(|x| x.token() == &LexemKind::RBrace)
+            .unwrap_or(false)
+        {
+            return None;
         }
 
         let current_token_data = self
@@ -408,21 +491,37 @@ impl Parser {
         );
     }
 
-    pub fn parse(&mut self) -> Option<Node> {
+    pub fn parse_advanced(&mut self, is_parsing_block: bool) -> Node {
         println!("= Entering parse");
-        let mut actions = Vec::<Node>::new();
+        let mut actions: Vec<Node> = Vec::new();
 
         while !self.input.reached_end() {
             let node = self.parse_once();
+
+            if is_parsing_block && node.is_none() {
+                break;
+            }
 
             actions.push(node.unwrap());
         }
 
         println!("= Exiting parse");
 
-        Some(match actions.len() {
+        match actions.len() {
             1 => actions.pop().unwrap(),
             _ => Node::Program(actions),
-        })
+        }
+    }
+
+    pub fn parse(&mut self) -> Node {
+        self.parse_advanced(false)
+    }
+
+    fn consume_semicolon(&self) -> bool {
+        let token = self.input.next();
+
+        token
+            .map(|a| a.token() == &LexemKind::Semicolon)
+            .unwrap_or(false)
     }
 }

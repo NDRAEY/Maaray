@@ -23,6 +23,7 @@ fn main() {
     let tokens = tokens.into_iter().map(|a| a.unwrap()).collect();
 
     let mut parser = parser::Parser::new(tokens);
+    let ast = parser.parse();
 
-    println!("Tokens: {:#?}", parser.parse());
+    println!("Tokens: {:#?}", ast);
 }
