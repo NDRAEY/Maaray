@@ -1,0 +1,7 @@
+// Should be 6
+
+print(2 + 2 * 2)
+
+// Should be 8
+
+// print((2 + 2) * 2)

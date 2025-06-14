@@ -20,6 +20,8 @@ fn parse_to_ast(code: &str) -> Node {
 
 	let tokens = tokens.into_iter().map(|a| a.unwrap()).collect();
 
+	println!("{:?}", tokens);
+
 	let mut parser = parser::Parser::new(tokens);
 	let ast = parser.parse();
 

@@ -100,7 +100,26 @@ impl<T: Iterator<Item = TResult<Token>>> Lexer<T> {
                             '+' => LexemKind::Plus,
                             '-' => LexemKind::Minus,
                             '*' => LexemKind::Asterisk,
-                            '/' => LexemKind::Slash,
+                            '/' => {
+                            	let nx = self.next();
+
+                            	if let Some(Ok(tok)) = nx {
+                            		if tok.kind == TokenKind::Symbol('/') {
+                            			let mut next = self.next();
+                            			while let Some(Ok(tok)) = next {
+                            				if tok.kind == TokenKind::Symbol('\n') {
+                            					break;
+                            				}
+
+                            				next = self.next();
+                            			}
+
+                            			return self.lex();
+                            		}
+                            	}
+                            	
+                            	LexemKind::Slash
+                            },
                             '.' => LexemKind::Dot,
                             ',' => LexemKind::Comma,
                             _ => {
